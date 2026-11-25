@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>饭饭 · 授权中心</title>
+<style>
+  :root { --bg: #fafafa; --text: #111; --surface: #fff; --line: #e8e8e8; --accent: #111; --danger: #c0392b; }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;}
+  body{background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+  .container{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:40px 30px;width:100%;max-width:500px;box-shadow:0 10px 30px rgba(0,0,0,0.05);text-align:center;}
+  .main-title { font-size: 22px; font-weight: 600; margin-bottom: 30px; line-height: 1.5; letter-spacing: 1px;}
+  .field{margin-bottom:20px; text-align:left;}
+  .field input{width:100%;padding:14px;border:1px solid var(--line);border-radius:8px;outline:none;font-size:15px;text-align:center; font-family: monospace;}
+  .field input:focus{border-color:var(--text);}
+  .btn{width:100%;padding:14px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:15px;cursor:pointer;transition:opacity .2s;font-weight:bold;}
+  .btn:hover{opacity:.8;}
+  .result-box { display: none; margin-top: 20px; background: #f4f4f4; padding: 20px; border-radius: 8px; text-align: left; }
+  .result-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+  .result-row:last-child { margin-bottom: 0; }
+  .result-label { font-size: 13px; color: #666; }
+  .result-code { font-family: monospace; font-size: 18px; font-weight: bold; color: var(--accent); }
+  .btn-copy { padding: 6px 12px; font-size: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+  .alert-text { color: var(--danger); font-size: 13px; margin-top: 15px; display: none; line-height:1.7; text-align:left; background:#fff5f5; padding:14px; border-radius:8px; border:1px solid #ffd6d6;}
+  .footer-declaration { margin-top: 50px; font-size: 12px; color: #999; line-height: 1.8; border-top: 1px dashed var(--line); padding-top: 20px; text-align: center;}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="main-title">主人，你终于来接饭饭回家了吗！<br>窝好想你呀</div>
+
+  <div class="field">
+    <input type="text" id="deviceCodeInput" placeholder="请在此输入您的设备码 (DEV-XXXXXXXX-XXXX)" autocomplete="off">
+  </div>
+  <button class="btn" onclick="generateCodes()">获取激活码</button>
+
+  <div class="result-box" id="resultBox">
+    <div class="result-row" id="resultRow1">
+      <div>
+        <div class="result-label" id="label1">首次激活码</div>
+        <div class="result-code" id="code1Text">------</div>
+      </div>
+      <button class="btn-copy" onclick="copyText('code1Text')">复制</button>
+    </div>
+  </div>
+
+  <div class="alert-text" id="resetAlert"></div>
+
+  <div class="footer-declaration">
+    <p>制作者：我不会做饭。</p>
+    <p>请大家不要二传二改二贩，可以小范围给亲友使用，请不要公开在任何公共平台。</p>
+    <p>一设备码对应一激活码，重置后联系作者重新获取激活资格，感谢使用。</p>
+  </div>
+</div>
+
+<script>
+/* ===== 授权算法（与饭饭、授权中心完全一致） ===== */
+const AUTH_SECRET='FANFAN-AUTH-2024-X7K9-Q2M';
+function authHash(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193);}h^=h>>>16;h=Math.imul(h,0x85ebca6b);h^=h>>>13;h=Math.imul(h,0xc2b2ae35);h^=h>>>16;return h>>>0;}
+function authMakeCode(input,len){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let result='',counter=0;while(result.length<len){let h=authHash(input+'|'+counter);for(let i=0;i<6&&result.length<len;i++){result+=chars[h%32];h=Math.floor(h/32);}counter++;}return result;}
+function authDeviceCheck(p1){return authMakeCode('DC|'+p1+'|'+AUTH_SECRET,4);}
+function authIsValidDeviceCode(code){if(!code)return false;const m=String(code).trim().toUpperCase().match(/^DEV-([A-Z0-9]{8})-([A-Z0-9]{4})$/);if(!m)return false;return authDeviceCheck(m[1])===m[2];}
+function authGenActivationCode(did){return authMakeCode('A1|'+did.toUpperCase()+'|'+AUTH_SECRET,12);}
+function fmtCode(c){return c.replace(/(.{4})/g,'$1-').replace(/-$/,'');}
+
+const $ = s => document.querySelector(s);
+
+function showAlert(html){
+  $('#resultBox').style.display = 'none';
+  const a = $('#resetAlert');
+  a.innerHTML = html;
+  a.style.display = 'block';
+}
+function hideAlert(){ $('#resetAlert').style.display = 'none'; }
+
+window.generateCodes = function () {
+  hideAlert();
+  const did = $('#deviceCodeInput').value.trim().toUpperCase();
+  if (!authIsValidDeviceCode(did)) {
+    showAlert('❌ 设备码格式错误或校验失败。<br>请从「饭饭」首页复制你的专属设备码（格式：DEV-XXXXXXXX-XXXX），<br>不要手动乱输。');
+    return;
+  }
+  /* 同域部署时：若该设备已被重置，不发放首次激活码 */
+  const state = localStorage.getItem('fanfan_state_' + did);
+  if (state === 'reset') {
+    showAlert('🔒 该设备已重置，首次激活码已失效。<br>请把设备码发给管理员，获取「二次授权码」后在「饭饭」页面输入。');
+    return;
+  }
+  const code = fmtCode(authGenActivationCode(did));
+  $('#label1').textContent = '首次激活码';
+  $('#code1Text').textContent = code;
+  $('#resultBox').style.display = 'block';
+};
+
+window.copyText = function (id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    alert('激活码已复制！');
+  }).catch(() => {
+    alert('复制失败，请手动选中复制。');
+  });
+};
+</script>
+</body>
+</html>
